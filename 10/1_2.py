@@ -11,36 +11,37 @@ class BoundingBox:
     def __init__(self, points):
         if len(points) == 0:
             raise ValueError("Can't compute bounding box of empty list")
-        self.minx = sys.maxsize
-        self.miny = sys.maxsize
-        self.maxx = -1
-        self.maxy = -1
+        self.min_x = sys.maxsize
+        self.min_y = sys.maxsize
+        self.max_x = -1
+        self.max_y = -1
         for p in points:
             x = p.x
             y = p.y
-            # Set min coords
-            if x < self.minx:
-                self.minx = x
-            if y < self.miny:
-                self.miny = y
-            # Set max coords
-            if x > self.maxx:
-                self.maxx = x
-            elif y > self.maxy:
-                self.maxy = y
+            if x < self.min_x:
+                self.min_x = x
+            if y < self.min_y:
+                self.min_y = y
+            if x > self.max_x:
+                self.max_x = x
+            elif y > self.max_y:
+                self.max_y = y
 
     @property
     def width(self):
-        return self.maxx - self.minx
+        return self.max_x - self.min_x
 
     @property
     def height(self):
-        return self.maxy - self.miny
+        return self.max_y - self.min_y
 
     def __repr__(self):
         return "BoundingBox({}, {}, {}, {})".format(
-            self.minx, self.maxx, self.miny, self.maxy
+            self.min_x, self.max_x, self.min_y, self.max_y
         )
+
+    def contains(self, point):
+    	return self.min_x <= point.x <= self.max_x and self.min_y <= point.y <= self.max_y
 
 
 class Point:
@@ -77,22 +78,22 @@ def parse_line(line):
     return parsed[0], parsed[1], parsed[2], parsed[3]
 
 
-def step(points, step_size, min_x, max_x, min_y, max_y):
+def step(points, step_size, grid_bb):
     remove_points = []
     for point in points:
         point.update(step_size)
-        if point.x > max_x or point.x < min_x or point.y > max_y or point.y < min_y:
+        if not grid_bb.contains(point):
             remove_points.append(point)
 
     for remove_point in remove_points:
         points.remove(remove_point)
 
 
-def draw(points, min_x, max_x, min_y, max_y, time):
+def draw(points, time):
     print(time)
     bb = BoundingBox(points)
-    for y in range(bb.miny, bb.maxy + 1):
-        for x in range(bb.minx, bb.maxx + 1):
+    for y in range(bb.min_y, bb.max_y + 1):
+        for x in range(bb.min_x, bb.max_x + 1):
             if any(point.x == x and point.y == y for point in points):
                 print("#", end="")
             else:
@@ -104,38 +105,22 @@ def draw(points, min_x, max_x, min_y, max_y, time):
 
 points = []
 
-
-min_x = 0
-max_x = 0
-min_y = 0
-max_y = 0
-
-
 with open("input.txt") as fh:
     for line in fh:
         x, y, xv, yv = parse_line(line)
-        if x < min_x:
-            min_x = x
-        if y < min_y:
-            min_y = y
-        if x > max_x:
-            max_x = x
-        if y > max_y:
-            max_y = y
-
         points.append(Point(x, y, xv, yv))
 
+grid_bb = BoundingBox(points)
+
 # normalize
-x_add = abs(min_x)
-y_add = abs(min_y)
-min_x += x_add
-max_x += x_add
-min_y += y_add
-max_y += y_add
+x_add = abs(grid_bb.min_x)
+y_add = abs(grid_bb.min_y)
 
 for p in points:
     p.x += x_add
     p.y += y_add
+
+grid_bb = BoundingBox(points)
 
 time = 0
 step_size = 1
@@ -157,11 +142,11 @@ def is_interesting(points):
 
 
 while keep_simulating:
-    step(points, step_size, min_x, max_x, min_y, max_y)
+    step(points, step_size, grid_bb)
     if not points:
         keep_simulating = False
 
     if is_interesting(points):
-        draw(points, min_x, max_x, min_y, max_y, time + 1)
+        draw(points, time + 1)
 
     time += step_size
